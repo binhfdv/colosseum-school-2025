@@ -46,7 +46,7 @@ In this assignment, we will first create a custom LXC container by adding a Grap
 
 4.1. If no network is provided to containers:
 
-    ```
+    ```bash
     lxc network list
     lxc network attach lxdbr0 my-container eth0
     lxc exec my-container -- dhclient eth0
