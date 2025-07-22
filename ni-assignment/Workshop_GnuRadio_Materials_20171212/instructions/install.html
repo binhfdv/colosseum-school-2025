@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="">
+<meta name="author" content="">
+
+<title>Ettus Research Workshop</title>
+
+<link href="bootstrap/css/bootstrap.css" rel="stylesheet">
+<link href="bootstrap/css/style.css" rel="stylesheet">
+<style>
+.instructions {
+font-family: "Courier New", Courier, monospace;
+}
+.action {
+font-style: italic;
+font-weight: 700;
+}
+</style>
+<body>
+
+<nav class="navbar navbar-inverse navbar-fixed-top">
+<div class="container">
+<div class="navbar-header">
+<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+<span class="sr-only">Toggle navigation</span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</button>
+<a class="navbar-brand" href="#">Ettus Research Workshop</a>
+</div>
+
+</div>
+</nav>
+
+<div class="container">
+
+<h1> Instructions for installing all the tools for the Workshop</h1>
+
+<p> Specifically, this document explains how to install the following onto a brand-new virgin Ubuntu/Xubuntu 16.04 system. 
+
+<ul> 
+<li>UHD</li> 
+<li>GNU Radio</li> 
+<li>gr-osmosdr OOT</li> 
+<li>GQRX</li> 
+<li>gr-rds OOT</li> 
+<li>Inspectrum</li> 
+<li>gr-fosphor OOT</li> 
+</ul> 
+
+</p>
+
+
+<br><br><hr>
+
+<h2>Workarea</h2>
+<p>Create a <i>workarea</i> folder to keep all the GitHub repositories and workshop materials together.</p>
+<figure>
+<pre><code>mkdir -p /home/demo/workarea</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>Download Materials</h2>
+<p>Download the workshop materials into the <i>workarea</i> folder. You can do this either from the command line, as shown below, or by using a web browser such as Firefox or Chrome to view <a href="http://66.228.35.220/" target="_blank">http://66.228.35.220/</a>. Then uncompress the archive file.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+wget http://66.228.35.220/ettus_workshop.tar.gz
+tar zxvf ettus_workshop.tar.gz
+</code></pre>
+</figure>
+
+
+<br><br><hr>
+<h2>Install Dependencies</h2>
+<p>Install all the necessary dependencies for the various tools.</p>
+<figure>
+<pre><code>sudo apt-get -y install git swig cmake doxygen build-essential libboost-all-dev libtool libusb-1.0-0 libusb-1.0-0-dev libudev-dev libncurses5-dev libfftw3-bin libfftw3-dev libfftw3-doc libcppunit-1.13-0v5 libcppunit-dev libcppunit-doc ncurses-bin cpufrequtils python-numpy python-numpy-doc python-numpy-dbg python-scipy python-docutils qt4-bin-dbg qt4-default qt4-doc libqt4-dev libqt4-dev-bin python-qt4 python-qt4-dbg python-qt4-dev python-qt4-doc python-qt4-doc libqwt6abi1 libfftw3-bin libfftw3-dev libfftw3-doc ncurses-bin libncurses5 libncurses5-dev libncurses5-dbg libfontconfig1-dev libxrender-dev libpulse-dev swig g++ automake autoconf libtool python-dev libfftw3-dev libcppunit-dev libboost-all-dev libusb-dev libusb-1.0-0-dev fort77 libsdl1.2-dev python-wxgtk3.0 git-core libqt4-dev python-numpy ccache python-opengl libgsl-dev python-cheetah python-mako python-lxml doxygen qt4-default qt4-dev-tools libusb-1.0-0-dev libqwt5-qt4-dev libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 cmake git-core wget libxi-dev gtk2-engines-pixbuf r-base-dev python-tk liborc-0.4-0 liborc-0.4-dev libasound2-dev python-gtk2 libzmq-dev libzmq1 python-requests python-sphinx libcomedi-dev python-zmq tree</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>Installing UHD</h2>
+<p>Build and install UHD version 3.10.2.0 as follows.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone git://github.com/EttusResearch/uhd.git
+cd uhd/
+git checkout release_003_010_002_000
+cd host/
+mkdir build
+cd build
+cmake ../
+make -j4
+make test
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+<br><br><hr>
+
+<h2>B-Series Configuration</h2>
+<p>If you are using a B-series radio (B200, B210, B200mini), then install the UDEV rules for USB devices.</p>
+<figure>
+<pre><code>cd /home/demo/workarea/uhd/host/utils
+sudo cp uhd-usrp.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+</code></pre>
+</figure>
+
+<br><br><hr>
+
+<h2>N/X-Series Configuration</h2>
+<p>If you are using a N-series or X-series radio (N200, N210, X300, X310), then configure IP networking. You can do this on the command line, but you may need to do it via the Network Manager GUI on the desktop, as it will overwrite settings made on the command line.</p>
+<p> Also note that Linux no longer uses interface names such as <span class="instructions">eth0</span>, and now uses a predictable naming scheme by default. Wired Ethernet interface names will begin wih <span class="instructions">en</span>, and wireless Ethernet interface names will begin with <span class="instructions">wl</span>.</p>
+<p>Display a list of interfaces on the system:</p>
+<figure>
+<pre><code>ifconfig
+</code></pre>
+</figure>
+<p>Assuming that the name of the wired interface to the radio is <span class="instructions">enp0s31f6</span>, then set the IP address from the command line:</p>
+<figure>
+<pre><code>ifconfig enp0s31f6 down
+ifconfig enp0s31f6 address 192.168.10.1 netmask 255.255.255.0
+ifconfig enp0s31f6 up
+</code></pre>
+</figure>
+
+<br><br><hr>
+
+
+<h2>Thread Priority</h2>
+<p>Set the threading priority as follows.</p>
+
+<p>Create the <span class="instructions">usrp</span> group.</p>
+<figure>
+<pre><code>sudo groupadd usrp
+sudo usermod -aG usrp $USER
+</code></pre>
+</figure>
+
+<p>Append the following line to end of <span class="instructions">/etc/security/limits.conf</span> file.</p>
+<figure>
+<pre><code>@usrp - rtprio  99
+</code></pre>
+</figure>
+
+
+<p>Edit the <span class="instructions">/etc/security/limits.conf</span> file with a text editor, append the line mentioned above, and save the file.</p>
+
+<figure>
+<pre><code>sudo nano /etc/security/limits.conf</code></pre>
+</figure>
+
+<p>Some keyboard short-cuts for the Nano text editor:</p>
+Press <kbd>CTRL + X</kbd>&nbsp;&nbsp;&nbsp;&nbsp;<span class="action">To exit nano</span><br><br>
+
+Press <kbd>Y</kbd>&nbsp;&nbsp;&nbsp;&nbsp;<span class="action">To save file</span><br><br>
+
+Press <kbd>ENTER</kbd>&nbsp;&nbsp;&nbsp;&nbsp;<span class="action">To confirm</span><br><br>
+
+<p>Logout and then log back in, so that the changes can take effect</p>
+
+<p>Once you have logged back in, verify that the chnages are in effect. List the groups to which your user account belongs. The group <span class="instructions">groups</span> should be listed.</code></pre>
+</figure>
+<figure>
+<pre><code>id -a
+</code></pre>
+</figure>
+
+<br><br><hr>
+
+
+<h2>Install GNU Radio</h2>
+<p>Build and install GNU Radio version 3.7.10.1 as follows.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone --recursive https://github.com/gnuradio/gnuradio.git
+cd gnuradio/
+git checkout v3.7.10.1
+mkdir build && cd build
+cmake ../
+make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>gr-osmosdr</h2>
+<p>Build and install the gr-osmosdr OOT as follows. While this OOT is not directly needed, GQRX and gr-rds require it, so we'll install it.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone git://git.osmocom.org/gr-osmosdr
+cd gr-osmosdr
+mkdir build && cd build
+cmake ../
+make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>GQRX</h2>
+<p>Build and install GQRX version 2.6 as follows.</p>
+<p>There are some additional dependencies, mostly for Qt5, that we must first install.</p>
+<figure>
+<pre><code>sudo apt-get install qt5-default qttools5-dev-tools libqt5svg5 libqt5svg5-dev</code></pre>
+</figure>
+
+<p>Now we can build and install GQRX itself.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone https://github.com/csete/gqrx.git
+cd gqrx
+git checkout v2.6
+mkdir build && cd build
+qmake ..
+make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>gr-rds</h2>
+<p>Build and install the gr-rds OOT as follows.</p>
+<p>There are some additional dependencies that we must first install.</p>
+<figure>
+<pre><code>sudo apt-get install cmake libboost-all-dev liblog4cpp5-dev swig</code></pre>
+</figure>
+
+<p>Now we can build and install gr-rds itself.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone https://github.com/bastibl/gr-rds.git
+cd gr-rds/
+mkdir build && cd build
+cmake ../
+make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>Inspectrum</h2>
+<p>Build and install Inspectrum as follows.</p>
+<p>There are some additional dependencies that we must first install.</p>
+<figure>
+<pre><code>sudo apt-get install qt5-default libfftw3-dev cmake pkg-config</code></pre>
+</figure>
+
+<h3>liquid-dsp</h3>
+<p>We also need to install liquid-dsp</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone git://github.com/jgaeddert/liquid-dsp.git
+cd liquid-dsp
+./bootstrap.sh</code></pre>
+</figure>
+
+<p>Ubuntu 16.04 requires some additional <span class="instructions">./configure</span> flags</p>
+<figure>
+<pre><code>CFLAGS="-march=native" ./configure --enable-fftoverride
+</code></pre>
+</figure>
+
+
+<p>Build and install liquid-dsp as follows.</p>
+<figure>
+<pre><code>make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+<p>Now we can build and install Inspectrum itself.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone https://github.com/miek/inspectrum.git
+cd inspectrum
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+
+<br><br><hr>
+
+<h2>gr-fosphor</h2>
+<p>Build and install the gr-foshpor OOT as follows.</p>
+<p>There are numerous dependencies that we must first install.</p>
+<figure>
+<pre><code>sudo apt-get install cmake xorg-dev libglu1-mesa-dev opencl-headers ocl-icd-opencl-dev clinfo alien
+</code></pre>
+</figure>
+
+<h3>GLFW3</h3>
+<p>We next need to build and install GLFW3.</p>
+<figure>
+<pre><code>cd /home/demo/workarea
+git clone https://github.com/glfw/glfw
+cd glfw
+mkdir build
+cd build
+cmake ../ -DBUILD_SHARED_LIBS=true
+make
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+
+<h3>Intel OpenCL</h3>
+<p>We next need to install Intel OpenCL run-time library. We do not build this from source code. We install from a binary.</p>
+
+<p>Create <span class="instructions">tmp</span> working directory</p>
+<figure>
+<pre><code>mkdir $HOME/tmp
+cd $HOME/tmp</code></pre>
+</figure>
+
+<p>Get the binary for the Intel OpenCL run-time, either from the workshop materials, or from Intel's website.</p>
+
+<figure>
+<pre><code>cp /home/demo/workarea/ettus_workshop/files/opencl_runtime_14.2_x64_4.5.0.8.tgz .
+</code></pre>
+</figure>
+
+<h4>or</h4>
+
+<figure>
+<pre><code>wget http://registrationcenter.intel.com/irc_nas/4181/opencl_runtime_14.2_x64_4.5.0.8.tgz
+</code></pre>
+</figure>
+
+<p>Install Intel OpenCL Runtime</p>
+<figure>
+<pre><code>tar xvf opencl_runtime_14.2_x64_4.5.0.8.tgz
+cd pset_opencl_runtime_14.1_x64_4.5.0.8/rpm
+</code></pre>
+</figure>
+
+<figure>
+<pre><code>alien --to-tgz opencl-1.2-base-pset-4.5.0.8-1.noarch.rpm
+tar xvf opencl-1.2-base-4.5.0.8.tgz
+sudo mv opt/intel /opt
+rm -rf opt
+</code></pre>
+</figure>
+
+<figure>
+<pre><code>alien --to-tgz opencl-1.2-intel-cpu-4.5.0.8-1.x86_64.rpm
+tar xvf opencl-1.2-intel-cpu-4.5.0.8.tgz
+</code></pre>
+</figure>
+
+<figure>
+<pre><code>sudo mkdir -p /etc/OpenCL/vendors
+</code></pre>
+</figure>
+
+<figure>
+<pre><code>sudo mv opt/intel/opencl-1.2-4.5.0.8/etc/intel64.icd /etc/OpenCL/vendors/</code></pre>
+</figure>
+
+<figure>
+<pre><code>sudo mkdir -p /opt/intel/opencl-1.2-4.5.0.8/lib64/
+</code></pre>
+</figure>
+
+<figure>
+<pre><code>sudo mv opt/intel/opencl-1.2-4.5.0.8/lib64/* /opt/intel/opencl-1.2-4.5.0.8/lib64/
+rm -rf opt
+</code></pre>
+</figure>
+
+<p>Now we can build and install gr-fosphor itself.</p>
+<figure>
+<pre><code>cd /home/user/workarea
+git clone git://git.osmocom.org/gr-fosphor
+cd gr-fosphor
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+sudo ldconfig
+</code></pre>
+</figure>
+<br><hr>
+
+
+
+
+</div>
+
+
+<script src="bootstrap/js/jquery.js"></script>
+<script src="bootstrap/css/bootstrap.js"></script>
+
+
+</body>
+</html>

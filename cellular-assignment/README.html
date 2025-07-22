@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Florian Kaltenberger, Robert Schmidt, Sakthi Velumani, Rakesh Mundlamuri, Tien-Thinh Nguyen, Teodora Vladic, and many more" />
+  <meta name="date" content="2025-06-02" />
+  <title>Deploying OpenAirInterface (OAI) 5G RAN and Core-network in Colosseum</title>
+  <style type="text/css">
+      code{white-space: pre-wrap; background: #E4E5E7; }
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+    href="https://www.w3.org/Talks/Tools/Slidy2/styles/slidy.css" />
+  <script src="https://www.w3.org/Talks/Tools/Slidy2/scripts/slidy.js"
+    charset="utf-8" type="text/javascript"></script>
+</head>
+<body>
+<div class="slide titlepage">
+  <h1 class="title">Deploying OpenAirInterface (OAI) 5G RAN and Core-network in Colosseum</h1>
+  <p class="author">
+Florian Kaltenberger, Robert Schmidt, Sakthi Velumani, Rakesh Mundlamuri, Tien-Thinh Nguyen, Teodora Vladic, and many more
+  </p>
+  <p class="date">2025-06-02</p>
+</div>
+<div id="cellular-assignment" class="slide section level1">
+<h1>Cellular Assignment</h1>
+<p>In this assignment, we will use OpenAirInterface (www.openairinterface.org) to instantiate a softwarized cellular network on Colosseum and exchange traffic between the base station and the user(s).</p>
+<p>The goal of the assignment is to run an experiment with the OAI core, the OAI gNB and the OAI UE and to collect a wireshark trace of a successfull connection procedure (NGAP protocol).</p>
+<p>The aim of this tutorial is to:</p>
+<ol style="list-style-type: decimal">
+<li>Set-up of end-to-end 5G/NR SA setup on Colosseum</li>
+<li>Learn about different OAI repositories</li>
+<li>Learn how to deploy the Core Network</li>
+<li>Understand the RAN code repository organization</li>
+<li>How to compile the RAN</li>
+<li>Use of the scope(s)</li>
+<li>DU-CU/F1 split</li>
+<li>FlexRIC</li>
+</ol>
+<p>Note: this file can be converted to a presentation using</p>
+<pre><code>pandoc -t slidy --template ran.slidy -s README.md -o README.html</code></pre>
+</div>
+<div class="slide section level1">
+
+<p><strong>TABLE OF CONTENTS</strong></p>
+<p>[[<em>TOC</em>]]</p>
+</div>
+<div id="deploying-oai-on-colosseum" class="slide section level1">
+<h1>Deploying OAI on Colosseum</h1>
+<p>There are ready-made images in Colosseum NAS which include OAI RAN and 5G Core Network. These images can be selected in the Colosseum reservation page under the <code>common</code> section. The images of interest are</p>
+<ul>
+<li>RAN Image: <code>oai-2025w20-yg</code></li>
+<li>Core-network Image: <code>oai-cn-2025w22-yg</code></li>
+</ul>
+<p>Make a reservation with <code>n+2</code> SRNs out of which one Core-network image and <code>n+1</code> RAN Images where <code>n</code> is the number of UEs in the test scenario.</p>
+<p>When you make a reservation, please check the box Q1-Q2-Q3. This will guarantee that your nodes are synchronized.</p>
+<p>Once the reservation is active, you can login to the SRNs. The user for both images is ‘root’ and the password is <code>pass</code> for <code>oai-cn-2025w22-yg</code> and <code>ChangeMe</code> for <code>oai-2025w20-yg</code>.</p>
+</div>
+<div class="slide section level1">
+
+<h2 id="run-oai-5g-core-network">Run OAI 5G Core-network</h2>
+<p>In SRN running <code>oai-cn-2025w22-yg</code></p>
+<pre><code>cd oai-cn5g
+docker compose up -d</code></pre>
+<p>This should start all the required docker containers for running the core-network.</p>
+</div>
+<div class="slide section level1">
+
+<h2 id="run-oai-gnb">Run OAI gNB</h2>
+<p>In SRN running <code>oai-2025w20-yg</code></p>
+<pre><code>cd OAI-Colosseum
+python3 ran.py -t donor -m sa --numa --if_freq 1000000000 --mcc 001 --mnc 01 --tac 1</code></pre>
+<p>This starts the gNB (<code>-t donor</code>) in standalone mode (<code>-m sa</code>). <code>--numa</code> tells the node to use the cores associated to the same NUMA node as the network card that connects the USRP. <code>--if_freq 1000000000</code> runs the whole setup at an intermediate frequency of 1GHz for better performance. <code>--mcc 001 --mnc 01 --tac 1</code> sets the Mobile Country Code, the Mobile Network Code and the Tracking Area Code. These parameters have to match the ones of the core network configuration.</p>
+</div>
+<div class="slide section level1">
+
+<h2 id="start-rf-scenario">Start RF Scenario</h2>
+<p>Now we need to tell the MCHEM (Massive CHannel EMulator) to set up a channel between all the nodes in the current reservation. This can be done from any of the SRNs in the reservation. The following command starts an RF scenario with 0 dB path loss. (Please note that losses due to hardware impairments are still present.)</p>
+<p><code>colosseumcli rf start -c 10009</code></p>
+</div>
+<div class="slide section level1">
+
+<h2 id="run-oai-ue">Run OAI UE</h2>
+<p>Run the following commands.</p>
+<pre><code>cd OAI-Colosseum
+python3 ran.py -t ue -m sa --numa --if_freq 1000000000 --mcc 001 --mnc 01 --tac 1 --dnn oai</code></pre>
+<p>This starts the UE (<code>-t ue</code>) in standalone mode (<code>-m sa</code>). <code>--numa</code> tells the node to use the cores associated to the same NUMA node as the network card that connects the USRP. <code>--if_freq 1000000000</code> runs the whole setup at an intermediate frequency of 1GHz for better performance. <code>--mcc 001 --mnc 01 --tac 1</code> sets the Mobile Country Code, the Mobile Network Code and the Tracking Area Code. <code>--dnn oai</code> is the Data Network Name. These parameters have to match the ones of the core network configuration.</p>
+<p>If all goes well, the UE should connect to the gNB and the core network should have assigned an IP address to the UE. This can be verified by running <code>ifconfig</code> on the UE side and checking if the network interface named <code>oaitun_ue</code> has an IP assigned.</p>
+<p>Sometimes the UE may continuously fail the Random Access (RA) procedure and not proceed beyond that point. If this happens, try changing the <code>timing_advance</code> value in the <code>106</code> PRB section of the <code>conf.json</code> file (increase or decrease in steps of 5).</p>
+</div>
+<div class="slide section level1">
+
+<h2 id="ip-traffic">IP Traffic</h2>
+<p>Ping the core-network from UE using <code>ping 192.168.70.135 -I oaitun_ue</code>. If the ping is successful, it means that an end-to-end connection between the UE and the 5G core network has been established.</p>
+<p>The user can push more traffic over the RAN using tools such as <code>iperf3</code>, or equivalent. On the core-network side, run <code>docker exec -it oai-ext-dn iperf3 -s</code></p>
+<h3 id="downlink-traffic">Downlink Traffic</h3>
+<p>On the UE side, run <code>iperf3 -c 192.168.70.135 -B oaitun_ue1 -b 50M -u -R</code></p>
+<h3 id="uplink-traffic">Uplink Traffic</h3>
+<p>On the UE side, run <code>iperf3 -c 192.168.70.135 -B oaitun_ue1 -b 15M -u</code></p>
+<p>If you get an error like this <code>iperf3: error - unable to send control message: Bad file descriptor</code> do the following at the UE</p>
+<pre><code>ip route add 192.168.70.128/26 dev oaitun_ue1 proto kernel scope link src 10.0.0.2</code></pre>
+<p>and then call iperf3 without the option <code>-B oaitun_ue1</code>. If you run more than 1 UEs you have to replace <code>10.0.0.2</code> with the IP address of the corresponding UE.</p>
+</div>
+<div id="technical-deep-dive" class="slide section level1">
+<h1>Technical Deep Dive</h1>
+<div class="figure">
+<img src="resources/oaiworkshop.png" alt="" />
+<p class="caption">SA Basic Demo</p>
+</div>
+</div>
+<div class="slide section level1">
+
+<h2 id="the-core-network">The Core Network</h2>
+<ul>
+<li>Access and Mobility Management Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-amf">AMF</a></strong>)</li>
+<li>Authentication Server Management Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-ausf">AUSF</a></strong>)</li>
+<li>Location Management Function (<strong>LMF</strong>)</li>
+<li>Network Exposure Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-nef">NEF</a></strong>)</li>
+<li>Network Repository Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-nrf">NRF</a></strong>)</li>
+<li>Network Slicing Selection Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-nssf">NSSF</a></strong>)</li>
+<li>Network Data Analytics Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-nwdaf">NWDAF</a></strong>)</li>
+<li>Policy Control Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-pcf">PCF</a></strong>)</li>
+<li>Session Management Function (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-smf">SMF</a></strong>)</li>
+<li>Unified Data Management (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-udm">UDM</a></strong>)</li>
+<li>Unified Data Repository (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-udr">UDR</a></strong>)</li>
+<li>User Plane Function (<strong>UPF</strong>) with 2 variants:
+<ul>
+<li>Simple Implementation (with a eBPF option) (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-upf">UPF</a></strong>)</li>
+<li>VPP-Based Implementation (<strong><a href="https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-upf-vpp">UPF-VPP</a></strong>)</li>
+</ul></li>
+<li>Unstructured Data Storage Function (<strong>UDSF</strong>)</li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<h3 id="docker-images">Docker images</h3>
+<p>Docker images of all OAI repositories are hosted on https://hub.docker.com/orgs/oaisoftwarealliance/.</p>
+<p>The OAI CI/CD team has automated more frequent pushes to Docker-Hub on <code>oaisoftwarealliance</code> account. Two important things to be noted:</p>
+<ul>
+<li>We will keep pushing to the <code>latest</code> tag when a milestone is reached.</li>
+<li>We are making pushes on the <code>develop</code> tag whenever a contribution has been accepted. These images are <strong>EXPERIMENTAL</strong>.</li>
+<li>Release tag <code>vx.x.x</code> contains the release code</li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<h3 id="configuring-the-oai-5g-core-network-functions">Configuring the OAI-5G Core Network Functions</h3>
+<p>Since <code>v2.0.0</code> release of the 5G Core Network, the deployment files have been simplified:</p>
+<ol style="list-style-type: decimal">
+<li>The <a href="./docker-compose.yml">docker-compose</a> file has containers/images related parameters:</li>
+</ol>
+<ul>
+<li>Which version of the images to use</li>
+<li>Name and IP addresses of the containers</li>
+</ul>
+<ol start="2" style="list-style-type: decimal">
+<li>The <a href="./conf/config.yaml">config.yaml</a> file has the real network configuration parameters such as:</li>
+</ol>
+<ul>
+<li>PLMN / Slices</li>
+<li>DNN</li>
+<li>…</li>
+</ul>
+<h3 id="analyzing-core-network-traffic-with-wireshark-or-tshark">Analyzing core network traffic with wireshark or tshark</h3>
+<p>We can analyze the messages between the core network components and between the RAN and the core with wireshark (graphical interface) or tshark (command line interface)</p>
+<p>After starting the core network you will see a docker bridge network named “demo-oai-public-net” and a local netowkr interface named “demo-oai”.</p>
+<ul>
+<li><p>With Wireshark, select interface “demo-oai” with capture filter <code>sctp</code> and dispay filter <code>ngap</code></p></li>
+<li><p>With tshark type: tshark -i demo-oai -f sctp -w oai.pcap</p></li>
+<li><p>You will need to copy this file to your local machine using scp and then you can analyze it with wireshark there.</p></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<h2 id="the-ran-repository">The RAN repository</h2>
+<ul>
+<li><code>https://gitlab.eurecom.fr/oai/openairinterface5g</code></li>
+<li>Work happens in the <code>develop</code> branch</li>
+<li>Usually one integration branch per week, tagged in the format <code>YYYY-wWW</code>, e.g., <code>2024.w12</code></li>
+<li><code>master</code> for a known stable version - release v2.0.0</li>
+<li>latest release: <code>v2.2.0</code> (February 2025)</li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<h3 id="ran-repository-structure">RAN Repository structure</h3>
+<ul>
+<li><p><code>openair1</code>: Layer 1 (3GPP LTE Rel-10/12 PHY, NR Rel-15 PHY)</p></li>
+<li><p><code>openair2</code>: Layer 2 (3GPP LTE Rel-10 MAC/RLC/PDCP/RRC/X2AP, NR Rel-15+ MAC/RLC/PDCP/SDAP/RRC/X2AP/F1AP/E1AP), E2AP!</p></li>
+<li><p><code>openair3</code>: Layer 3 (3GPP LTE Rel-10 S1AP/GTP)</p></li>
+<li><p><code>charts</code>/<code>docker</code>/<code>openshift</code>: for building images</p></li>
+<li><p><code>ci-scripts</code>: everything related to continuous integration/testing, configuration files</p></li>
+<li><p><code>cmake_targets</code>: everything related to compilation, build artifacts in <code>ran_build/build</code></p></li>
+<li><p><code>common</code>: common code, generic libraries (Tpool, logging, configuration modules, )</p></li>
+<li><p><code>doc</code>: some documentation</p></li>
+<li><p><code>executables</code>: LTE and NR executables</p></li>
+<li><p><code>nfapi</code>: (n)FAPI split</p></li>
+<li><p><code>radio</code>: radios and SDRs</p></li>
+<li><p><code>targets</code>: configuration files (<code>PROJECTS</code>)</p></li>
+<li><p>Deep dive:</p>
+<ul>
+<li>Where is NR PDSCH modulation? Called in <code>nr_generate_pdsch()</code></li>
+<li>Where is the NR PDSCH/DLSCH scheduler? See <code>gNB_dlsch_ulsch_scheduler()</code></li>
+<li>Where is the NR RRC Reconfiguration message sent? See <code>rrc_gNB_generate_dedicatedRRCReconfiguration()</code></li>
+<li>Where is the PDSCH simulation? See <code>dlschsim.c</code></li>
+<li>Where is the E2 agent? -&gt; next training</li>
+</ul></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<h3 id="installation-of-dependencies-and-compilation-not-needed-for-this-tutorial">Installation of dependencies and compilation (not needed for this tutorial)</h3>
+<p>If you start from a fresh image you need first get the source code, install the RAN dependencies and compile OAI.</p>
+<pre><code>cd
+git clone https://gitlab.eurecom.fr/oai/openairinterface5g.git
+cd openairinterface5g/cmake_targets
+git checkout 2025.w20                        # tested tag
+./build_oai --ninja -I                       # install dependencies 
+./build_oai --ninja --gNB --nrUE -w USRP -c  # compile gNB and nrUE</code></pre>
+</div>
+<div class="slide section level1">
+
+<h3 id="how-to-build">How to build</h3>
+<p>If you make changes to the code you will need to recompile</p>
+<ul>
+<li><p>Use of the <code>build_oai</code> script</p>
+<ul>
+<li>Is a wrapper for <code>cmake</code></li>
+<li>Some useful options: <code>-h</code>, <code>--eNB</code>, <code>--gNB</code>, <code>--UE</code>, <code>--nrUE</code>, <code>-c</code>, <code>--ninja</code>, <code>--sanitize-address</code>, <code>-g</code>, <code>-w</code>, <code>-P</code>/<code>--physical_simulators</code>, …</li>
+</ul></li>
+<li><p>By default, build artifacts are in <code>cmake_targets/ran_build/build</code> (<code>ran_build/</code> configurable, see <code>-d</code> switch)</p></li>
+<li><p>To rebuild more quickly, issue</p>
+<pre><code>ninja nr-softmodem nr-uesoftmodem dfts ldpc params_libconfig coding rfsimulator</code></pre></li>
+<li><p>Also interesting: <code>lte-softmodem</code>, <code>lte-uesoftmodem</code></p></li>
+</ul>
+<h3 id="a-closer-look-at-the-config-file">A closer look at the config file</h3>
+<ul>
+<li>Note: if an option is not given, a default is used (which might or might not prevent the gNB from starting)</li>
+<li>You can override many options on the command line. Example: <code>./nr-softmodem -O gnb.conf --MACRLCs.[0].dl_max_mcs 20</code></li>
+</ul>
+<h4 id="gnbs-section"><code>gNBs</code> section</h4>
+<ul>
+<li><code>plmn_list</code>: list of PLMNs, with MCC, MNC, and NSSAIs; needs to match CN config</li>
+<li><code>tracking_area_code</code>: Tracking Area Code; needs to match CN</li>
+<li><code>amf_ip_address.[0].ipv4</code>: IP address of AMF</li>
+<li><code>NETWORK_INTERFACES.GNB_IPV4_ADDRESS_FOR_NG_AMF</code> and <code>NETWORK_INTERFACES.GNB_IPV4_ADDRESS_FOR_NGU</code>: IP address on which is the gNB</li>
+<li><code>min_rxtxtime</code>: minimum feedback time (e.g., PDSCH to PUCCH), is 5 for OAI UE and 2 for commercial UE</li>
+<li><code>absoluteFrequencySSB</code> and <code>dl_absoluteFrequencyPointA</code>: frequencies for synchronization signal block and “PointA”, in ARFCN; <a href="http://sqimway.com/nr_refA.php">use a calculator instead of getting mad</a></li>
+<li>TDD configuration is in <code>nrofDownlinkSlots</code>, <code>nrofUplinkSlots</code>, <code>nrofDownlinkSymbols</code> and <code>nrofUplinkSymbols</code></li>
+</ul>
+<h4 id="macrlcs-section"><code>MACRLCs</code> section</h4>
+<ul>
+<li><code>ulsch_max_frame_inactivity</code>: maximum number of frames until UE is scheduled automatically even without requesting it. Often at <code>0</code> or <code>1</code> for lower latency, but this is “artificial”</li>
+<li><code>pusch_TargetSNRx10</code>, <code>pucch_TargetSNRx10</code>: target SNRs multiplied by ten for these channels; increasing can sometimes stabilize a system</li>
+<li><code>dl_harq_round_max</code>, <code>ul_harq_round_max</code>: maximum number of MAC HARQ rounds</li>
+<li><code>dl_max_mcs</code>, <code>ul_max_mcs</code>: maximum MCS to be scheduled</li>
+</ul>
+<p>Other parameters: see <code>openair2/GNB_APP/MACRLC_nr_paramdef.h</code></p>
+<h4 id="rus-section"><code>RUs</code> section</h4>
+<ul>
+<li><code>nb_tx</code>, <code>nb_rx</code>: number transmit/receive antennas to use</li>
+<li><code>max_rxgain</code>: maximum receive gain to be used, IIRC only used for USRP</li>
+<li><code>att_tx</code>, <code>att_rx</code>: attenuation for transmit/receive signals to be applied at gNB. In many lab scenarios, the receiver of a UE is saturated if the gNB sends with full power, hence you need a value greater than <code>0</code> (try, in order: <code>6</code>, <code>12</code>, <code>18</code>)</li>
+<li><code>sdr_addrs</code>: arguments to be passed to search for SDR, e.g., IP address for N310</li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<h3 id="scopes">Scopes</h3>
+<p>The scopes allow to see various channels. It requires that you have access to an X server.</p>
+<h4 id="xforms">Xforms</h4>
+<ul>
+<li><p>Install dependencies:</p>
+<pre><code>sudo apt-get install libforms-bin libforms-dev</code></pre></li>
+<li><p>Build scope:</p>
+<pre><code>cd ~/openairinterface5g/cmake_targets/
+./build_oai --build-lib nrscope --ninja
+cd ran_build/build/
+cmake -DENABLE_NRSCOPE=ON ../../../ &amp;&amp; ninja nrscope # alternative</code></pre></li>
+<li><p>Run <code>nr-softmodem</code> and <code>nr-uesoftmodem</code> with <code>-d</code> switch</p></li>
+<li><p>The error</p>
+<pre><code>In fl_initialize() [flresource.c:995]: 5G-gNB-scope: Cant open display :0
+In fl_bgn_form() [forms.c:347]: Missing or failed call of fl_initialize()</code></pre>
+<p>can be solved by granting root the right to open the X display</p>
+<pre><code>xhost +si:localuser:root</code></pre></li>
+</ul>
+<div class="figure">
+<img src="resources/scope-screenshot.png" alt="" />
+<p class="caption">Screenshot of the nrscope</p>
+</div>
+</div>
+<div class="slide section level1">
+
+<h4 id="qtscope">QtScope</h4>
+<ul>
+<li><p>Install dependencies (note: you need Qt5, not Qt6!)</p>
+<pre><code>sudo apt-get install libqt5charts5-dev</code></pre></li>
+<li><p>Build scope</p>
+<pre><code>cd ~/openairinterface5g/cmake_targets/
+./build_oai --build-lib nrqtscope --ninja
+cd ran_build/build/
+cmake -DENABLE_NRQTSCOPE=ON ../../../ &amp;&amp; ninja nrqtscope # alternative</code></pre></li>
+<li><p>Run the <code>nr-softmodem</code> and <code>nr-uesoftmodem</code> with <code>--dqt</code> switch</p></li>
+</ul>
+<div class="figure">
+<img src="resources/nrqtscope-screenshot.png" alt="" />
+<p class="caption">Screenshot of the nrqtscope</p>
+</div>
+</div>
+<div class="slide section level1">
+
+<h3 id="cu-du-split">CU-DU split</h3>
+<ul>
+<li><p>Start the gNB as follows</p>
+<pre><code>sudo -E ./nr-softmodem --sa -O ~/oai-workshops/ran/conf/gnb-cu.sa.f1.conf
+sudo -E ./nr-softmodem --rfsim --sa -O ~/oai-workshops/ran/conf/gnb-du.sa.band78.106prb.rfsim.conf</code></pre></li>
+<li><p>Start the UE as before</p></li>
+<li><p>Compare the IP addresses in the config with what you have below to understand the interfaces</p></li>
+</ul>
+<div class="figure">
+<img src="resources/f1-arch.png" alt="" />
+<p class="caption">Architecture of F1 and config</p>
+</div>
+</div>
+<div class="slide section level1">
+
+<p>You can now also analyze the traffic on the F1 interface with wireshark/tshark. For that you need to start a wireshark/tshark session on the local interface “lo”, capture filter “sctp” and use display filter “f1ap”. Here is an example</p>
+<div class="figure">
+<img src="resources/f1.png" alt="" />
+<p class="caption">Screenshot of the Wireshark with NG and F1</p>
+</div>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<h4 id="the-ue-runs-into-a-segmentation-fault.">The UE runs into a segmentation fault.</h4>
+<p>The current OAI version precompiled on the image is 2024.w14, which has the known bug. Please upgrade the OAI version to 2024.w15 and recompile.</p>
+<h4 id="i-am-getting-a-lot-of-lllllls-on-the-screen">I am getting a lot of LLLLLLs on the screen</h4>
+<p>These Ls come from the USRP driver (called UHD) and mean that there were late packets in the communication between the USRP and the server. These real-time problems usually appear when the nr-softmodem executable runs on a different NUMA node than the network card is connected to. On the SRNs the network card is connected to NUMA node 1 and you can force the nr-softmodem to run on that core using the command numactl. See usage of the –numa option in above.</p>
+<p>Alternatively if you are not using the ran.py script you can use numactl like this</p>
+<pre><code>numactl --cpunodebind=1 --membind=1 ./nr-softmodem &lt;command line options&gt;</code></pre>
+</div>
+<div class="slide section level1">
+
+<h2 id="flexric">FlexRIC</h2>
+<p>Please follow Section 4.2 of the <img src="https://gitlab.eurecom.fr/oai/trainings/oai-workshops/-/blob/main/oam/README.md" alt="FlexRIC Tutorial" />.</p>
+<p>The FlexRIC E2 Agent and FlexRIC application are already installed in the image sakthi-oai-flexric. You can run FlexRIC on the same host as the gNB. If you want to run it on a different machine you have to modify the e2_agent secion in the OAI config file.</p>
+</div>
+<div class="slide section level1">
+
+<h2 id="how-to-contribute">How to contribute</h2>
+<ul>
+<li>Anyone can contribute! You are here to contribute!</li>
+<li>You have to sign a <a href="https://openairinterface.org/legal/oai-license-model/">Contributor License Agreement</a></li>
+<li>Contributions go through
+<ul>
+<li>Peer review on Gitlab</li>
+<li>Continuous Integration Build and Testing</li>
+</ul></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+.idea/
+.DS_Store
+*.gz
+*.log
+*.tmp
+.zip
+*.tar
+*.tar.gz
+*.rar
