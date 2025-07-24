@@ -46,17 +46,33 @@ In this assignment, we will first create a custom LXC container by adding a Grap
 
 4.1. If no network is provided to containers:
 
-    ```bash
+    ```bash 
     lxc network list
     lxc network attach lxdbr0 my-container eth0
     lxc exec my-container -- dhclient eth0
+
+    sudo tee /etc/resolv.conf > /dev/null <<EOF
+    nameserver 10.70.14.1
+    options edns0 trust-ad
+    search lxd
+    EOF
     ```
 
-    The bridge name `lxdbr0` is specified when you do `sudo lxd init`
+The bridge name `lxdbr0` is specified when you do `sudo lxd init`. Check you container IP with `lxc list`, for example: `10.70.14.99` so nameserver is `10.70.14.1`
 
-    Containers are _running instances of images_.
-    They share all the contents in terms of files and folders of an image but they can also be modified and their executables can be run.
-    By starting the container `my-container` from the `base` image, we can prepare our software starting from the imported `base-2104` archive (avoiding to start from scratch), and later commit it (i.e., save it) in another image which can be treated as an immutable snapshot of the container.
+Containers are _running instances of images_.
+They share all the contents in terms of files and folders of an image but they can also be modified and their executables can be run.
+By starting the container `my-container` from the `base` image, we can prepare our software starting from the imported `base-2104` archive (avoiding to start from scratch), and later commit it (i.e., save it) in another image which can be treated as an immutable snapshot of the container.
+
+To delete lxd, use following commands:
+
+    ```bash
+    sudo snap remove lxd
+    sudo groupdel lxd
+    sudo rm -rf /var/snap/lxd
+    sudo rm -rf /var/snap/lxd/common/lxd
+    ```
+
 
 5. To access and make any change in the running container we type the command:
 
