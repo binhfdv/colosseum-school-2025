@@ -1,6 +1,6 @@
 
 
-## 1. Install lxd
+## 1. Install lxd (https://www.cyberciti.biz/faq/install-lxd-on-ubuntu-22-04-lts-using-apt-snap/)
 ```bash
 snap install lxd --channel=latest/stable
 sudo adduser $USER lxd
@@ -72,6 +72,7 @@ lxc network list
 lxc network attach lxdbr0 base-ubuntu eth0
 lxc exec base-ubuntu -- dhclient eth0
 
+# inside container
 sudo tee /etc/resolv.conf > /dev/null <<EOF
 nameserver 10.70.14.1
 options edns0 trust-ad

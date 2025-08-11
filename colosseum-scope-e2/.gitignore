@@ -1,0 +1,7 @@
+# documentation
+.tox
+docs/_build/
+
+# build files
+bin/
+libs/
