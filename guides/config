@@ -1,19 +1,19 @@
 # SSH Gateway
 Host colosseum-gw
     Hostname gw.colosseum.net
-    User <your-colosseum-user-name>
-    IdentityFile <path-to-private-key-on-your-local-machine> 
+    User binhduong
+    IdentityFile /home/lapdk/.ssh/id_rsa
 
 
 # File Proxy Server
 Host file-proxy
     Hostname file-proxy
-    User <your-colosseum-user-name>
+    User binhduong
     ProxyCommand ssh -W %h:%p colosseum-gw 
 
 
 # SRNs (to access the user containers)
-Host <your-colosseum-team-name>-???
+Host comnets-???
     User root
     StrictHostKeyChecking no
     UserKnownHostsFile=/dev/null

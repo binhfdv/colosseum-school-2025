@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 static CSV_METRICS_NUM: u8 = 31;
 static DELTA_TS_S: u8 = 2;
 static METRICS_DIR: &str = "/root/radio_code/scope_config/metrics/csv/";
-static METRICS_PRESET: u32 = 1;
+static METRICS_PRESET: u32 = 0;
 static TIMESTAMP_DEBUG: bool = false;
 
 
