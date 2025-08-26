@@ -26,7 +26,23 @@ lxc storage list
 sudo ufw allow in on lxdbr0 comment 'lxdbr0 for LXD'
 sudo ufw route allow in on lxdbr0 comment 'lxdbr0 for LXD'
 sudo ufw route allow out on lxdbr0 comment 'lxdbr0 for LXD'
+
+# 1) Pick the outbound interface that has the default route
+DEV=$(ip -4 route show default | awk '{print $5; exit}'); echo "Uplink: $DEV"
+
+# 2) Allow forwarding both ways
+sudo iptables -P FORWARD ACCEPT
+sudo iptables -C FORWARD -i lxdbr0 -o "$DEV" -j ACCEPT 2>/dev/null || \
+sudo iptables -A FORWARD -i lxdbr0 -o "$DEV" -j ACCEPT
+sudo iptables -C FORWARD -i "$DEV" -o lxdbr0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+sudo iptables -A FORWARD -i "$DEV" -o lxdbr0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# 3) Make sure NAT is in place for the lxdbr0 subnet
+sudo iptables -t nat -C POSTROUTING -s 10.163.28.0/24 -o "$DEV" -j MASQUERADE 2>/dev/null || \
+sudo iptables -t nat -A POSTROUTING -s 10.163.28.0/24 -o "$DEV" -j MASQUERADE
 ```
+
+Remember to change IP subnet as in your machine, `lxc network list`
 
 ## 4. Ensure your user has the required privileges to use LXC. To check that, look for the following lines in the files `/etc/subuid` and `/etc/subgid`
 
@@ -74,7 +90,7 @@ lxc exec base-ubuntu -- dhclient eth0
 
 # inside container
 sudo tee /etc/resolv.conf > /dev/null <<EOF
-nameserver 10.70.14.1
+nameserver 10.163.28.1
 options edns0 trust-ad
 search lxd
 EOF
@@ -137,18 +153,18 @@ You know how to do this :)))
 ## 12. Deploy OAI Core and FlexRIC in multiple servers:
 ```bash
 lxc launch local:oai_5gcore 5gcn
-lxc launch local:oai_e2_ran e2ran-1
-lxc launch local:oai_e2_ran e2ran-2
+lxc launch local:oai_e2_ran e2ran-bs
+lxc launch local:oai_e2_ran e2ran-ue
 lxc launch local:oai_flexric flexric
 ```
 
 We need 4 containers/servers:
 - `5gcn`: OAI 5G Core network,
-- `e2ran-1`: ORAN BS with e2 enabled,
-- `e2ran-2`: nr-UE,
+- `e2ran-bs`: ORAN BS with e2 enabled,
+- `e2ran-ue`: nr-UE,
 - `flexric`: FlexRIC and xApps.
 
-Notes: Check step `8` if `Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error mounting "cgroup" to rootfs at "/sys/fs/cgroup": mount src=cgroup, dst=/sys/fs/cgroup, dstFd=/proc/thread-self/fd/8, flags=0xe: permission denied: unknown` occurs when running docker compose inside container.
+Notes: Check step `8` if `Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error mounting "cgroup" to rootfs at "/sys/fs/cgroup": mount src=cgroup, dst=/sys/fs/cgroup, dstFd=/proc/thread-self/fd/8, flags=0xe: permission denied: unknown` or any occurs when running docker compose inside container.
 
 ### Run 5G Core:
 ```bash
@@ -164,8 +180,8 @@ Sample result:
 
 ### Run O-RAN BS:
 ```bash
-lxc exec e2ran-1 /bin/bash
-root@e2ran-1:~# cd oai-v210/docker-compose
+lxc exec e2ran-bs /bin/bash
+root@e2ran-bs:~# cd oai-v210/docker-compose
 root@5gcn:~/oai-v210/docker-compose# docker compose -f docker-compose-oai-v210-ran.yaml up -d
 ```
 
@@ -176,8 +192,8 @@ Sample result:
 
 ### Run nr-UE:
 ```bash
-lxc exec e2ran-2 /bin/bash
-root@e2ran-2:~# cd oai-v210/docker-compose
+lxc exec e2ran-ue /bin/bash
+root@e2ran-ue:~# cd oai-v210/docker-compose
 root@5gcn:~/oai-v210/docker-compose# docker compose up oai-ue
 ```
 
@@ -208,14 +224,14 @@ root@5gcn:~# ip route add 192.168.70.64/26 via 10.70.14.183 dev eth0
 root@5gcn:~# iptables -t nat -A POSTROUTING -s 192.168.70.128/26 -o eth0 -j MASQUERADE
 ```
 
-This tells `5gcn` to send any traffic destined for 192.168.70.64/26 via `e2ran-1`**’s eth0 interface** (10.70.14.183).
+This tells `5gcn` to send any traffic destined for 192.168.70.64/26 via `e2ran-bs`**’s eth0 interface** (10.70.14.183).
 
 ### `e2ran` to `5gcn`
 ```bash
-root@e2ran-1:~# echo 1 > /proc/sys/net/ipv4/ip_forward
-root@e2ran-1:~# sysctl -w net.ipv4.ip_forward=1
-root@e2ran-1:~# ip route add 192.168.70.128/26 via 10.70.14.179 dev eth0
-root@e2ran-1:~# iptables -t nat -A POSTROUTING -s 192.168.70.64/26 -o eth0 -j MASQUERADE
+root@e2ran-bs:~# echo 1 > /proc/sys/net/ipv4/ip_forward
+root@e2ran-bs:~# sysctl -w net.ipv4.ip_forward=1
+root@e2ran-bs:~# ip route add 192.168.70.128/26 via 10.70.14.179 dev eth0
+root@e2ran-bs:~# iptables -t nat -A POSTROUTING -s 192.168.70.64/26 -o eth0 -j MASQUERADE
 ```
 
-This tells `e2ran-1` to send any traffic for the 192.168.70.128/26 via `5gcn`**’s eth0 interface** (10.70.14.179).
+This tells `e2ran-bs` to send any traffic for the 192.168.70.128/26 via `5gcn`**’s eth0 interface** (10.70.14.179).
